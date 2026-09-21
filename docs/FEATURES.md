@@ -100,6 +100,21 @@ Peer cards are structured summaries that Honcho generates from conversations. Th
 - Communication style
 - Key characteristics
 
+### Editing Peer Cards
+
+Click **Edit** on any peer row to open the card editor:
+
+1. Existing facts are listed one per input (fetched from Honcho on open)
+2. Add, edit, or remove facts; the counter shows `n / 40`
+3. Click **Save Card**
+
+Notes:
+- Saving **replaces the entire card** (it is not merged with the existing card)
+- Honcho caps a card at **40 facts** and truncates beyond that; the editor warns at 40
+- Requires the `editor` or `admin` role; `viewer` receives a 403
+
+The **Representation** is AI-generated and read-only; it is derived by Honcho from the peer's conclusions.
+
 ---
 
 ## Session Management

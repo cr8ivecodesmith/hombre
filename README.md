@@ -65,7 +65,7 @@ Fixed the chat UI showing `(No response)` even though Honcho successfully return
 - **Manual Sync** — "Sync Now" button triggers Honcho's `schedule_dream` for the active workspace
 - **Sync Stats** — shows work unit progress from Honcho's queue/status endpoint
 - **Overview** — workspace stats, peer/session/conclusion counts at a glance
-- **Peers** — list participants, view representations and peer cards, compare peers side-by-side
+- **Peers** — list participants, view representations and peer cards, edit peer cards, compare peers side-by-side
 - **Sessions** — list conversations, view messages and summaries
 - **Chat** — ask questions about a peer using natural language with streaming responses and typing indicator; adjustable reasoning depth
 - **Conclusions** — browse and semantic search reasoning/memory with pagination and type filtering

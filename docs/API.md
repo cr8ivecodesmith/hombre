@@ -438,6 +438,7 @@ These are Honcho API endpoints available through the proxy:
 | POST | `/api/workspaces/{wid}/peers/create` | Create a peer (`{"id": "..."}`) |
 | POST | `/api/workspaces/{wid}/peers/{pid}/representation` | Get peer representation |
 | GET | `/api/workspaces/{wid}/peers/{pid}/card` | Get peer card |
+| PUT | `/api/workspaces/{wid}/peers/{pid}/card` | Set peer card (`{"peer_card": [str, ...]}`; replaces the entire card, max 40 facts) |
 | POST | `/api/workspaces/{wid}/sessions/list` | List sessions |
 | POST | `/api/workspaces/{wid}/sessions/create` | Create a session (`{"id": "..."}`) |
 | DELETE | `/api/workspaces/{wid}/sessions/{sid}` | Delete a session |

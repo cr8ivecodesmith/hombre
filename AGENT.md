@@ -67,7 +67,8 @@ node --check static/app.js
 
 ## Honcho API Notes
 
-- Peer card endpoint: `GET /v3/workspaces/{wid}/peers/{pid}/card` (GET only, not POST)
+- Peer card endpoint: `GET /v3/workspaces/{wid}/peers/{pid}/card` (read); `PUT /v3/workspaces/{wid}/peers/{pid}/card` with body `{"peer_card": [str, ...]}` sets the card (full replace, max 40 facts, auto-truncated upstream). Not POST.
+- Peer representation: `POST /v3/workspaces/{wid}/peers/{pid}/representation` is read-only (no set/update endpoint) — it is derived from the peer's conclusions
 - Chat endpoint: `POST /v3/workspaces/{wid}/peers/{pid}/chat` — queries a peer's representation using natural language; supports `reasoning_level` (minimal/low/medium/high/max) and `stream: true` for SSE
 - Summaries endpoint: `GET /v3/workspaces/{wid}/sessions/{sid}/summaries` (GET only)
 - Schedule dream: `POST /v3/workspaces/{wid}/schedule_dream` — triggers a sync/dream cycle; requires `observer` (peer ID) and `dream_type` in body

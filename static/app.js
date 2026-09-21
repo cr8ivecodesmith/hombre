@@ -46,6 +46,7 @@ const App = {
       const action = btn.dataset.action;
       const id = btn.dataset.id;
       if (action === 'toggle-card') PeersTab.toggleCard(id);
+      else if (action === 'edit-card') PeersTab.editCard(id);
       else if (action === 'toggle-messages') SessionsTab.toggleMessages(id);
       else if (action === 'toggle-summary') SessionsTab.toggleSummary(id);
       else if (action === 'search-conclusions') ConclusionsTab.search();
@@ -1240,6 +1241,7 @@ const PeersTab = {
                 <td class="mono">${App.formatDate(p.created_at)}</td>
                 <td class="flex gap-2">
                   <button class="btn btn-ghost btn-sm" data-action="toggle-card" data-id="${App.escapeAttr(p.id)}">Card</button>
+                  <button class="btn btn-ghost btn-sm" data-action="edit-card" data-id="${App.escapeAttr(p.id)}">Edit</button>
                   <button class="btn-delete-inline" data-action="delete-peer" data-id="${App.escapeAttr(p.id)}" title="Delete peer">&times;</button>
                 </td>
               </tr>
@@ -1404,16 +1406,24 @@ const PeersTab = {
 
     const ws = App.state.workspace;
     const reprBox = document.getElementById(`peer-repr-${peerId}`);
-    const cardBox = document.getElementById(`peer-card-${peerId}`);
 
     try {
-      const [repr, card] = await Promise.all([
-        App.api(`workspaces/${ws.id}/peers/${peerId}/representation`, { body: {} }),
-        App.api(`workspaces/${ws.id}/peers/${peerId}/card`, { method: 'GET' }),
-      ]);
-
+      const repr = await App.api(`workspaces/${ws.id}/peers/${peerId}/representation`, { body: {} });
       reprBox.textContent = repr.representation || 'No representation yet';
+    } catch {
+      reprBox.textContent = 'Failed to load';
+    }
 
+    await this.loadCard(peerId);
+  },
+
+  async loadCard(peerId) {
+    const cardBox = document.getElementById(`peer-card-${peerId}`);
+    if (!cardBox) return;
+
+    const ws = App.state.workspace;
+    try {
+      const card = await App.api(`workspaces/${ws.id}/peers/${peerId}/card`, { method: 'GET' });
       if (card.peer_card && card.peer_card.length > 0) {
         cardBox.innerHTML = `<div class="peer-card-list">${card.peer_card.map(c =>
           `<div class="peer-card-item">${App.escapeHtml(c)}</div>`
@@ -1422,9 +1432,91 @@ const PeersTab = {
         cardBox.innerHTML = '<div class="text-sm text-muted">No card yet</div>';
       }
     } catch {
-      reprBox.textContent = 'Failed to load';
       cardBox.innerHTML = '<div class="text-sm text-muted">Failed to load</div>';
     }
+  },
+
+  async editCard(peerId) {
+    const ws = App.state.workspace;
+
+    const list = document.createElement('div');
+    list.className = 'card-edit-list';
+    list.id = 'card-edit-list';
+    list.innerHTML = '<div class="loading-overlay"><div class="spinner"></div></div>';
+
+    const count = document.createElement('span');
+    count.className = 'text-xs text-muted';
+    count.id = 'card-edit-count';
+
+    const addBtn = document.createElement('button');
+    addBtn.className = 'btn btn-ghost btn-sm';
+    addBtn.id = 'card-add-fact';
+    addBtn.textContent = '+ Add fact';
+
+    const footer = document.createElement('div');
+    footer.className = 'flex items-center justify-between mt-3';
+    footer.appendChild(count);
+    footer.appendChild(addBtn);
+
+    const warn = document.createElement('p');
+    warn.className = 'text-xs text-muted';
+    warn.textContent = 'Saving replaces the entire card (max 40 facts).';
+
+    const updateCount = () => {
+      count.textContent = `${list.querySelectorAll('.card-edit-input').length} / 40`;
+    };
+
+    const addRow = (value = '') => {
+      const row = document.createElement('div');
+      row.className = 'card-edit-row flex items-center gap-2';
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'input card-edit-input';
+      input.value = value;
+      input.placeholder = 'Fact';
+      const remove = document.createElement('button');
+      remove.className = 'btn btn-ghost btn-sm';
+      remove.textContent = '\u00d7';
+      remove.title = 'Remove fact';
+      remove.addEventListener('click', () => { row.remove(); updateCount(); });
+      input.addEventListener('input', updateCount);
+      row.appendChild(input);
+      row.appendChild(remove);
+      list.appendChild(row);
+      updateCount();
+    };
+
+    addBtn.addEventListener('click', () => addRow());
+
+    try {
+      const card = await App.api(`workspaces/${ws.id}/peers/${peerId}/card`, { method: 'GET' });
+      list.innerHTML = '';
+      const facts = card.peer_card || [];
+      if (facts.length === 0) addRow();
+      else facts.forEach(f => addRow(f));
+    } catch {
+      list.innerHTML = '';
+      addRow();
+    }
+
+    Modal.show(`Edit Card \u2014 ${peerId}`, [warn, list, footer], async () => {
+      const values = [...document.querySelectorAll('#card-edit-list .card-edit-input')]
+        .map(i => i.value.trim())
+        .filter(Boolean);
+      if (values.length > 40) {
+        App.toast('Max 40 facts \u2014 remove some before saving', 'error');
+        return;
+      }
+      try {
+        await App.api(`workspaces/${ws.id}/peers/${peerId}/card`, { method: 'PUT', body: { peer_card: values } });
+      } catch (e) {
+        App.toast(e.message || 'Failed to save card', 'error');
+        return;
+      }
+      Modal.close();
+      App.toast('Card saved');
+      await this.loadCard(peerId);
+    }, { confirmText: 'Save Card', confirmClass: 'btn btn-primary' });
   }
 };
 
