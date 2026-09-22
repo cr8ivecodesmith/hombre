@@ -2027,10 +2027,19 @@ const ConclusionsTab = {
 
   async search() {
     const peerId = document.getElementById('conclusion-peer').value;
+    const query = document.getElementById('conclusion-search').value.trim();
+    if (!peerId) return;
+
+    // An empty query clears the text filter — re-run the selection filters
+    // (same as changing a dropdown), so clearing the box resets the search.
+    if (!query) {
+      App.state.conclusionPage = 1;
+      this.loadConclusions();
+      return;
+    }
+
     const observedId = document.getElementById('conclusion-observed').value;
     const level = document.getElementById('conclusion-level').value;
-    const query = document.getElementById('conclusion-search').value.trim();
-    if (!query || !peerId) return;
 
     const ws = App.state.workspace;
     const results = document.getElementById('conclusion-results');
