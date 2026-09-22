@@ -2027,6 +2027,8 @@ const ConclusionsTab = {
 
   async search() {
     const peerId = document.getElementById('conclusion-peer').value;
+    const observedId = document.getElementById('conclusion-observed').value;
+    const level = document.getElementById('conclusion-level').value;
     const query = document.getElementById('conclusion-search').value.trim();
     if (!query || !peerId) return;
 
@@ -2039,40 +2041,22 @@ const ConclusionsTab = {
     this.state.currentQuery = query;
     App.state.conclusionPage = 1;
 
+    // Combine the text search with the active selection filters (AND).
+    // `content` uses the `contains` comparison operator; on a text column
+    // Honcho builds an ILIKE pattern, so matching is case-insensitive.
+    const filters = { content: { contains: query } };
+    if (peerId) filters.observer_id = peerId;
+    if (observedId) filters.observed_id = observedId;
+    if (level) filters.level = level;
+
     results.innerHTML = '<div class="loading-overlay"><div class="spinner"></div> Searching...</div>';
 
     try {
-      // Step 1: Semantic search for top 100 most relevant
-      const semanticItems = await App.api(`workspaces/${ws.id}/conclusions/query`, {
-        body: { query, top_k: 100, filters: { observer: peerId, observed: peerId } }
+      const data = await App.api(`workspaces/${ws.id}/conclusions/list/all`, {
+        body: { filters },
       });
-      const semanticResults = Array.isArray(semanticItems) ? semanticItems : [];
-
-      // Filter semantic results to only keep items that actually contain the keyword
-      const queryLower = query.toLowerCase();
-      const filteredSemanticResults = semanticResults.filter(item =>
-        item.content && item.content.toLowerCase().includes(queryLower)
-      );
-      const filteredIds = new Set(filteredSemanticResults.map(c => c.id));
-
-      // Step 2: Fetch ALL conclusions and find text matches
-      const extraMatches = [];
-      const allData = await App.api(`workspaces/${ws.id}/conclusions/list/all`, {
-        body: { filters: { observer_id: peerId } }
-      });
-      const allItems = allData.conclusions || [];
-
-      for (const item of allItems) {
-        if (!filteredIds.has(item.id) && item.content && item.content.toLowerCase().includes(queryLower)) {
-          extraMatches.push(item);
-          filteredIds.add(item.id);
-        }
-      }
-
-      // Combine: filtered semantic results first (more relevant), then additional text matches
-      const allResults = [...filteredSemanticResults, ...extraMatches];
-      this.state.items = allResults;
-      this.renderResults(results, allResults);
+      this.state.items = data.conclusions || [];
+      this.renderResults(results, this.state.items);
     } catch {
       this.state.items = [];
       this.state.currentQuery = null;
