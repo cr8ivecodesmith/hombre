@@ -2106,17 +2106,15 @@ const ConclusionsTab = {
     const pageItems = items.slice(pageStart, pageStart + pageSize);
 
     container.innerHTML = `
-      <div class="flex items-center justify-between gap-2 flex-wrap mb-3">
-        <div class="text-sm text-muted">${total} conclusion${total !== 1 ? 's' : ''}</div>
-        <div class="flex items-center gap-3 flex-wrap">
-          <label class="flex items-center gap-1 text-sm text-muted cursor-pointer">
-            <input type="checkbox" id="conclusion-select-all-page"> Select page
-          </label>
-          <button class="btn btn-ghost btn-sm" id="conclusion-select-all-matching">Select all matching</button>
-          <button class="btn btn-ghost btn-sm" id="conclusion-clear-selection">Clear</button>
-          <span class="text-sm text-muted" id="conclusion-selection-count">0 selected</span>
-        </div>
+      <div class="flex items-center gap-4 flex-wrap mb-2">
+        <label class="flex items-center gap-2 text-sm text-muted cursor-pointer">
+          <input type="checkbox" id="conclusion-select-all-page"> Select page
+        </label>
+        <button class="btn btn-ghost btn-sm" id="conclusion-select-all-matching">Select all matching</button>
+        <button class="btn btn-ghost btn-sm" id="conclusion-clear-selection">Clear</button>
+        <span class="text-sm text-muted" id="conclusion-selection-count">0 selected</span>
       </div>
+      <div class="text-sm text-muted mb-3">${total} conclusion${total !== 1 ? 's' : ''}</div>
       <div class="flex flex-col gap-2" id="conclusion-list">
         ${pageItems.map((c, idx) => {
           const type = c.level || this.guessType(c.content);
