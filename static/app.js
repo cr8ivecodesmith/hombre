@@ -2110,7 +2110,7 @@ const ConclusionsTab = {
       <div class="text-sm text-muted mb-3">${total} conclusion${total !== 1 ? 's' : ''}</div>
       <div class="flex flex-col gap-2" id="conclusion-list">
         ${pageItems.map((c, idx) => {
-          const type = this.guessType(c.content);
+          const type = c.level || this.guessType(c.content);
           const cid = c.id || `c-${idx + pageStart}`;
           const contentHtml = query ? this.highlightKeyword(c.content, query) : App.escapeHtml(c.content);
           return `

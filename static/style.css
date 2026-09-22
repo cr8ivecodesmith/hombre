@@ -780,6 +780,7 @@ tr.clickable:hover td { background: var(--accent-dim); }
 .conclusion-type.explicit .dot { background: var(--green); }
 .conclusion-type.deductive .dot { background: var(--blue); }
 .conclusion-type.inductive .dot { background: var(--purple); }
+.conclusion-type.contradiction .dot { background: var(--amber); }
 
 /* ─── Search Bar ─── */
 .search-bar {
