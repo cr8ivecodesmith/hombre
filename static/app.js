@@ -2112,6 +2112,7 @@ const ConclusionsTab = {
         </label>
         <button class="btn btn-ghost btn-sm" id="conclusion-select-all-matching">Select all matching</button>
         <button class="btn btn-ghost btn-sm" id="conclusion-clear-selection">Clear</button>
+        <button class="btn btn-danger-ghost btn-sm" id="conclusion-delete-selected" disabled>Delete selected</button>
         <span class="text-sm text-muted" id="conclusion-selection-count">0 selected</span>
       </div>
       <div class="text-sm text-muted mb-3">${total} conclusion${total !== 1 ? 's' : ''}</div>
@@ -2169,6 +2170,12 @@ const ConclusionsTab = {
         this.updateSelectionUI();
       });
     }
+    const deleteSel = document.getElementById('conclusion-delete-selected');
+    if (deleteSel) {
+      deleteSel.addEventListener('click', () => {
+        if (this.state.selectedIds.size > 0) this.deleteSelected();
+      });
+    }
     container.querySelectorAll('.conclusion-select').forEach((cb) => {
       cb.addEventListener('change', () => {
         if (cb.checked) this.state.selectedIds.add(cb.dataset.id);
@@ -2184,6 +2191,9 @@ const ConclusionsTab = {
     if (!results) return;
     const countEl = results.querySelector('#conclusion-selection-count');
     if (countEl) countEl.textContent = `${this.state.selectedIds.size} selected`;
+
+    const deleteBtn = results.querySelector('#conclusion-delete-selected');
+    if (deleteBtn) deleteBtn.disabled = this.state.selectedIds.size === 0;
 
     const pageIds = Array.from(results.querySelectorAll('.conclusion-select')).map((cb) => cb.dataset.id);
     const selectedOnPage = pageIds.filter((id) => this.state.selectedIds.has(id)).length;
@@ -2245,6 +2255,43 @@ const ConclusionsTab = {
         }, 200);
       }
     });
+  },
+
+  async deleteSelected() {
+    const ws = App.state.workspace;
+    const ids = Array.from(this.state.selectedIds);
+    if (ids.length === 0) return;
+
+    Modal.confirm(
+      'Delete Conclusions',
+      `Delete ${ids.length} conclusion${ids.length !== 1 ? 's' : ''}? ${ws ? `This will attempt to remove them from Honcho via ${ws.id}.` : ''}`,
+      async () => {
+        let okCount = 0;
+        let failCount = 0;
+        for (const id of ids) {
+          let ok = false;
+          try {
+            await App.api(`workspaces/${ws.id}/conclusions/${id}`, { method: 'DELETE' });
+            ok = true;
+          } catch {
+            // Honcho may not support conclusion deletion — fall back to soft-delete
+            ok = await App.softDelete('conclusion', id);
+          }
+          if (ok) okCount++;
+          else failCount++;
+        }
+        Modal.close();
+        this.state.selectedIds.clear();
+        if (this.state.currentQuery) await this.search();
+        else await this.loadConclusions();
+        App.toast(
+          failCount === 0
+            ? `${okCount} conclusion${okCount !== 1 ? 's' : ''} deleted`
+            : `${okCount} deleted, ${failCount} failed`,
+          failCount === 0 ? 'success' : 'error'
+        );
+      }
+    );
   },
 
   guessType(content) {
