@@ -1940,14 +1940,14 @@ const ConclusionsTab = {
           <option value="deductive">deductive</option>
           <option value="inductive">inductive</option>
         </select>
-        <input type="text" class="input" id="conclusion-search" placeholder="Semantic search (select an observer first)..." disabled aria-label="Search conclusions">
+        <input type="text" class="input" id="conclusion-search" placeholder="Search conclusions (select an observer first)..." disabled aria-label="Search conclusions">
         <button class="btn btn-primary" id="conclusion-search-btn" data-action="search-conclusions" disabled>Search</button>
       </div>
       <div id="conclusion-results">
         <div class="empty-state">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:32px;height:32px"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
           <h3>Select an observer</h3>
-          <p>Choose an observer peer to view their conclusions, or use semantic search</p>
+          <p>Choose an observer peer to view their conclusions, or search by text</p>
         </div>
       </div>
     `;
@@ -1976,7 +1976,7 @@ const ConclusionsTab = {
           results.innerHTML = `
             <div class="empty-state">
               <h3>Select an observer</h3>
-              <p>Choose an observer peer to view their conclusions, or use semantic search</p>
+              <p>Choose an observer peer to view their conclusions, or search by text</p>
             </div>`;
         }
       }
