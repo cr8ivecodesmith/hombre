@@ -1926,51 +1926,96 @@ const ConclusionsTab = {
         </div>
       </div>
       <div class="search-bar">
-        <select class="input" id="conclusion-peer" style="max-width:250px" aria-label="Select peer">
-          <option value="">Select peer...</option>
+        <select class="input" id="conclusion-peer" style="max-width:220px" aria-label="Select observer peer">
+          <option value="">Observer: select...</option>
           ${App.state.peers.map(p => `<option value="${App.escapeHtml(p.id)}">${App.escapeHtml(p.id)}</option>`).join('')}
         </select>
-        <input type="text" class="input" id="conclusion-search" placeholder="Semantic search (select a peer first)..." disabled aria-label="Search conclusions">
+        <select class="input" id="conclusion-observed" style="max-width:220px" aria-label="Filter by observed peer">
+          <option value="">Observed: all</option>
+          ${App.state.peers.map(p => `<option value="${App.escapeHtml(p.id)}">${App.escapeHtml(p.id)}</option>`).join('')}
+        </select>
+        <select class="input" id="conclusion-level" style="max-width:160px" aria-label="Filter by level">
+          <option value="">Level: all</option>
+          <option value="explicit">explicit</option>
+          <option value="deductive">deductive</option>
+          <option value="inductive">inductive</option>
+        </select>
+        <input type="text" class="input" id="conclusion-search" placeholder="Semantic search (select an observer first)..." disabled aria-label="Search conclusions">
         <button class="btn btn-primary" id="conclusion-search-btn" data-action="search-conclusions" disabled>Search</button>
       </div>
       <div id="conclusion-results">
         <div class="empty-state">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:32px;height:32px"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-          <h3>Select a peer</h3>
-          <p>Choose a peer to view their conclusions, or use semantic search</p>
+          <h3>Select an observer</h3>
+          <p>Choose an observer peer to view their conclusions, or use semantic search</p>
         </div>
       </div>
     `;
 
     const peerSelect = document.getElementById('conclusion-peer');
+    const observedSelect = document.getElementById('conclusion-observed');
+    const levelSelect = document.getElementById('conclusion-level');
     const searchInput = document.getElementById('conclusion-search');
     const searchBtn = document.getElementById('conclusion-search-btn');
 
+    const observerSelected = () => peerSelect.value !== '';
+
     peerSelect.addEventListener('change', () => {
-      const enabled = peerSelect.value !== '';
+      const enabled = observerSelected();
       searchInput.disabled = !enabled;
       searchBtn.disabled = !enabled;
       if (enabled) {
         this.resetState();
         this.state.currentPeerId = peerSelect.value;
         App.state.conclusionPage = 1;
-        this.loadConclusions(peerSelect.value);
+        this.loadConclusions();
+      } else {
+        this.resetState();
+        const results = document.getElementById('conclusion-results');
+        if (results) {
+          results.innerHTML = `
+            <div class="empty-state">
+              <h3>Select an observer</h3>
+              <p>Choose an observer peer to view their conclusions, or use semantic search</p>
+            </div>`;
+        }
+      }
+    });
+
+    observedSelect.addEventListener('change', () => {
+      if (observerSelected()) {
+        App.state.conclusionPage = 1;
+        this.loadConclusions();
+      }
+    });
+
+    levelSelect.addEventListener('change', () => {
+      if (observerSelected()) {
+        App.state.conclusionPage = 1;
+        this.loadConclusions();
       }
     });
   },
 
-  async loadConclusions(peerId) {
+  async loadConclusions() {
     const ws = App.state.workspace;
     const results = document.getElementById('conclusion-results');
     if (!results) return;
+
+    const observerId = document.getElementById('conclusion-peer').value;
+    const observedId = document.getElementById('conclusion-observed').value;
+    const level = document.getElementById('conclusion-level').value;
+
+    const filters = {};
+    if (observerId) filters.observer_id = observerId;
+    if (observedId) filters.observed_id = observedId;
+    if (level) filters.level = level;
 
     results.innerHTML = '<div class="loading-overlay"><div class="spinner"></div> Loading...</div>';
 
     try {
       const data = await App.api(`workspaces/${ws.id}/conclusions/list/all`, {
-        body: {
-          filters: { observer_id: peerId },
-        }
+        body: { filters },
       });
       this.state.items = data.conclusions || [];
       this.state.currentQuery = null;
