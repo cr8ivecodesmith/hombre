@@ -165,14 +165,24 @@ async def _honcho_post(path: str, body: dict | None = None) -> dict | list | Non
 
 
 @app.post("/api/workspaces/{wid}/conclusions/list/all")
-async def list_all_conclusions(wid: str):
+async def list_all_conclusions(wid: str, request: Request):
     """Fetch ALL conclusions for a workspace by paginating through them.
 
     Honcho uses fastapi_pagination which reads page/size from QUERY
-    parameters, not the POST body.
+    parameters, not the POST body. Optional filters are forwarded from
+    the request body (e.g. {"filters": {"observer_id": "..."}}).
     """
     if not VALID_ID.match(wid):
         return JSONResponse({"error": "invalid_id"}, status_code=400)
+
+    filters = None
+    try:
+        body = await request.json()
+        if isinstance(body, dict):
+            filters = body.get("filters")
+    except Exception:
+        pass
+    body_payload = {"filters": filters} if filters else {}
 
     all_conclusions = []
     page = 1
@@ -183,7 +193,7 @@ async def list_all_conclusions(wid: str):
         try:
             resp = await _client.post(
                 f"/v3/workspaces/{wid}/conclusions/list",
-                json={},
+                json=body_payload,
                 params={"page": page, "size": size},
             )
             if resp.status_code >= 400:
