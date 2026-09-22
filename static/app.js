@@ -1905,11 +1905,13 @@ const ConclusionsTab = {
     items: [],
     currentPeerId: null,
     currentQuery: null,
+    selectedIds: new Set(),
   },
 
   resetState() {
     this.state.items = [];
     this.state.currentPeerId = null;
+    this.state.selectedIds = new Set();
     App.state.conclusionPage = 1;
   },
 
@@ -2002,6 +2004,9 @@ const ConclusionsTab = {
     const results = document.getElementById('conclusion-results');
     if (!results) return;
 
+    // A fresh load replaces the result set, so any prior selection no longer applies.
+    this.state.selectedIds = new Set();
+
     const observerId = document.getElementById('conclusion-peer').value;
     const observedId = document.getElementById('conclusion-observed').value;
     const level = document.getElementById('conclusion-level').value;
@@ -2048,6 +2053,7 @@ const ConclusionsTab = {
     // Reset state for new search
     this.state.items = [];
     this.state.currentQuery = query;
+    this.state.selectedIds = new Set();
     App.state.conclusionPage = 1;
 
     // Combine the text search with the active selection filters (AND).
@@ -2100,7 +2106,17 @@ const ConclusionsTab = {
     const pageItems = items.slice(pageStart, pageStart + pageSize);
 
     container.innerHTML = `
-      <div class="text-sm text-muted mb-3">${total} conclusion${total !== 1 ? 's' : ''}</div>
+      <div class="flex items-center justify-between gap-2 flex-wrap mb-3">
+        <div class="text-sm text-muted">${total} conclusion${total !== 1 ? 's' : ''}</div>
+        <div class="flex items-center gap-3 flex-wrap">
+          <label class="flex items-center gap-1 text-sm text-muted cursor-pointer">
+            <input type="checkbox" id="conclusion-select-all-page"> Select page
+          </label>
+          <button class="btn btn-ghost btn-sm" id="conclusion-select-all-matching">Select all matching</button>
+          <button class="btn btn-ghost btn-sm" id="conclusion-clear-selection">Clear</button>
+          <span class="text-sm text-muted" id="conclusion-selection-count">0 selected</span>
+        </div>
+      </div>
       <div class="flex flex-col gap-2" id="conclusion-list">
         ${pageItems.map((c, idx) => {
           const type = c.level || this.guessType(c.content);
@@ -2110,6 +2126,7 @@ const ConclusionsTab = {
             <div class="card" data-conclusion-id="${App.escapeAttr(cid)}">
               <div class="card-header">
                 <div class="flex items-center gap-2">
+                  <input type="checkbox" class="conclusion-select" data-id="${App.escapeAttr(cid)}" title="Select" aria-label="Select conclusion">
                   <span class="conclusion-type ${type}">
                     <span class="dot"></span>
                     ${type}
@@ -2129,6 +2146,59 @@ const ConclusionsTab = {
       </div>
       ${total > pageSize ? App.renderPaginationControls(App.state.conclusionPage, totalPages, total, 'conclusions') : ''}
     `;
+
+    // Wire the selection controls (re-created on every render).
+    const pageAll = document.getElementById('conclusion-select-all-page');
+    if (pageAll) {
+      pageAll.addEventListener('change', () => {
+        const pageIds = Array.from(container.querySelectorAll('.conclusion-select')).map((cb) => cb.dataset.id);
+        if (pageAll.checked) pageIds.forEach((id) => this.state.selectedIds.add(id));
+        else pageIds.forEach((id) => this.state.selectedIds.delete(id));
+        this.updateSelectionUI();
+      });
+    }
+    const selectAllMatching = document.getElementById('conclusion-select-all-matching');
+    if (selectAllMatching) {
+      selectAllMatching.addEventListener('click', () => {
+        this.state.items.forEach((c) => { if (c.id) this.state.selectedIds.add(c.id); });
+        this.updateSelectionUI();
+      });
+    }
+    const clearSel = document.getElementById('conclusion-clear-selection');
+    if (clearSel) {
+      clearSel.addEventListener('click', () => {
+        this.state.selectedIds.clear();
+        this.updateSelectionUI();
+      });
+    }
+    container.querySelectorAll('.conclusion-select').forEach((cb) => {
+      cb.addEventListener('change', () => {
+        if (cb.checked) this.state.selectedIds.add(cb.dataset.id);
+        else this.state.selectedIds.delete(cb.dataset.id);
+        this.updateSelectionUI();
+      });
+    });
+    this.updateSelectionUI();
+  },
+
+  updateSelectionUI() {
+    const results = document.getElementById('conclusion-results');
+    if (!results) return;
+    const countEl = results.querySelector('#conclusion-selection-count');
+    if (countEl) countEl.textContent = `${this.state.selectedIds.size} selected`;
+
+    const pageIds = Array.from(results.querySelectorAll('.conclusion-select')).map((cb) => cb.dataset.id);
+    const selectedOnPage = pageIds.filter((id) => this.state.selectedIds.has(id)).length;
+
+    results.querySelectorAll('.conclusion-select').forEach((cb) => {
+      cb.checked = this.state.selectedIds.has(cb.dataset.id);
+    });
+
+    const pageAll = results.querySelector('#conclusion-select-all-page');
+    if (pageAll) {
+      pageAll.checked = pageIds.length > 0 && selectedOnPage === pageIds.length;
+      pageAll.indeterminate = selectedOnPage > 0 && selectedOnPage < pageIds.length;
+    }
   },
 
   goToPage(page) {
