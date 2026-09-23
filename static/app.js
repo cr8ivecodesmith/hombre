@@ -2447,6 +2447,7 @@ const ConclusionsTab = {
 const MessagesTab = {
   state: {
     items: [],
+    allMessages: [],
     offset: 0,
     limit: 20,
     allLoaded: false,
@@ -2461,6 +2462,7 @@ const MessagesTab = {
 
   resetState() {
     this.state.items = [];
+    this.state.allMessages = [];
     this.state.offset = 0;
     this.state.allLoaded = false;
     this.state.currentSessionId = null;
@@ -2646,16 +2648,24 @@ const MessagesTab = {
     }
 
     try {
-      const filters = {};
-      if (currentPeerFilter) filters.peer_id = currentPeerFilter;
+      // Load ALL messages for the session via list/all (which paginates
+      // correctly via query params). The generic proxy's messages/list
+      // ignores body limit/offset (Honcho pagination is query-param based),
+      // so we fetch everything once and page client-side.
+      if (offset === 0 || this.state.allMessages.length === 0) {
+        const data = await App.api(`workspaces/${ws.id}/sessions/${currentSessionId}/messages/list/all`, {});
+        this.state.allMessages = data.messages || [];
+      }
 
-      const data = await App.api(`workspaces/${ws.id}/sessions/${currentSessionId}/messages/list`, {
-        body: { filters, limit, offset },
-      });
+      // Apply the peer filter client-side (list/all does not forward filters).
+      const filtered = currentPeerFilter
+        ? this.state.allMessages.filter(m => m.peer_id === currentPeerFilter)
+        : this.state.allMessages;
 
-      const newMessages = data.items || [];
-      this.state.items = offset === 0 ? newMessages : [...this.state.items, ...newMessages];
-      this.state.allLoaded = newMessages.length < limit;
+      // Page client-side (20-per-page window).
+      const page = filtered.slice(offset, offset + limit);
+      this.state.items = offset === 0 ? page : [...this.state.items, ...page];
+      this.state.allLoaded = (offset + limit) >= filtered.length;
       this.renderMessages(results, this._sortedItems());
       this._setSearchControlsEnabled(true);
     } catch {
