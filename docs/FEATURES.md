@@ -39,7 +39,7 @@ Hombre provides a single-page application (SPA) dashboard for managing and explo
 | Overview | Workspace summary, health status, workspace management |
 | Peers | Browse peers, view representations and cards |
 | Sessions | Browse sessions, view messages and summaries |
-| Messages | Browse messages across sessions with filtering |
+| Messages | Browse, search, and sort messages across sessions |
 | Chat | Natural language queries against peer representations |
 | Conclusions | View and search reasoning/memories by peer |
 | Settings | Configure Honcho server models and providers |
@@ -221,8 +221,16 @@ The Messages tab provides a cross-session view of all messages.
 
 ### Filtering
 
-- **Session filter** — View messages from a specific session
+- **Session picker** — A searchable input that filters the session list by ID (case-insensitive substring, top 50 matches). Selecting a session loads its messages.
 - **Peer filter** — Show only messages from a specific peer
+
+### Searching Messages
+
+With a session selected, type in the **Search messages** box to run a full-text search over that session's messages (Honcho `/search`, up to 100 results). The search ANDs with the peer filter, and the result count shows "Showing N of up to 100". Clearing the search returns to the normal listing.
+
+### Sorting
+
+The **Sort** control orders the loaded messages by time — newest first or oldest first.
 
 ### Message Display
 
