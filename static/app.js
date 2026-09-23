@@ -2491,7 +2491,6 @@ const MessagesTab = {
           <option value="">All peers</option>
           ${App.state.peers.map(p => `<option value="${App.escapeHtml(p.id)}">${App.escapeHtml(p.id)}</option>`).join('')}
         </select>
-        <button class="btn btn-primary" data-action="load-messages">Load</button>
       </div>
       <div class="search-bar" style="margin-top:8px">
         <input type="text" class="input" id="msg-search" placeholder="Search messages..." aria-label="Search messages" disabled>
@@ -2694,7 +2693,13 @@ const MessagesTab = {
         body: { query: this.state.searchQuery, filters, limit: 100 },
       });
 
-      this.state.items = this._normalizeSearch(data);
+      // The backend search is a hybrid (semantic + full-text) that returns the
+      // top-N by relevance, which can include messages that don't actually
+      // contain the query. Filter client-side so the search behaves as a
+      // filter: only show messages whose content matches the query.
+      const raw = this._normalizeSearch(data);
+      const q = this.state.searchQuery.toLowerCase();
+      this.state.items = raw.filter(m => (m.content || '').toLowerCase().includes(q));
       this.state.searchMode = true;
       this.state.allLoaded = true;
       this.renderMessages(results, this._sortedItems());
