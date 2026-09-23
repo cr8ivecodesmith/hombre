@@ -2483,7 +2483,7 @@ const MessagesTab = {
         <p>Browse messages across sessions</p>
       </div>
       <div class="search-bar">
-        <div class="session-picker" style="position:relative;width:300px">
+        <div class="session-picker" style="position:relative;flex:1">
           <input type="text" class="input" id="msg-session-search" placeholder="Search sessions..." aria-label="Search sessions" autocomplete="off">
           <div id="msg-session-list" class="session-picker-list"></div>
         </div>
@@ -2491,12 +2491,14 @@ const MessagesTab = {
           <option value="">All peers</option>
           ${App.state.peers.map(p => `<option value="${App.escapeHtml(p.id)}">${App.escapeHtml(p.id)}</option>`).join('')}
         </select>
-        <input type="text" class="input" id="msg-search" placeholder="Search messages..." aria-label="Search messages" disabled style="max-width:220px">
-        <select class="input" id="msg-sort" style="max-width:180px" aria-label="Sort messages">
+        <button class="btn btn-primary" data-action="load-messages">Load</button>
+      </div>
+      <div class="search-bar" style="margin-top:8px">
+        <input type="text" class="input" id="msg-search" placeholder="Search messages..." aria-label="Search messages" disabled>
+        <select class="input" id="msg-sort" style="max-width:180px" aria-label="Sort messages" disabled>
           <option value="newest">Time: newest first</option>
           <option value="oldest">Time: oldest first</option>
         </select>
-        <button class="btn btn-primary" data-action="load-messages">Load</button>
       </div>
       <div id="msg-results">
         <div class="empty-state">
@@ -2510,6 +2512,15 @@ const MessagesTab = {
     this._setupPicker();
     this._setupSearch();
     this._setupSort();
+    this._setupPeer();
+  },
+
+  _setupPeer() {
+    const peer = document.getElementById('msg-peer');
+    if (!peer) return;
+    peer.addEventListener('change', () => {
+      if (this.state.currentSessionId) this.load();
+    });
   },
 
   _setupPicker() {
@@ -2556,8 +2567,6 @@ const MessagesTab = {
     const list = document.getElementById('msg-session-list');
     if (list) list.style.display = 'none';
     this.state.currentSessionId = sessionId;
-    const search = document.getElementById('msg-search');
-    if (search) search.disabled = false;
     this.load();
   },
 
@@ -2649,9 +2658,17 @@ const MessagesTab = {
       this.state.items = offset === 0 ? newMessages : [...this.state.items, ...newMessages];
       this.state.allLoaded = newMessages.length < limit;
       this.renderMessages(results, this._sortedItems());
+      this._setSearchControlsEnabled(true);
     } catch {
       results.innerHTML = '<div class="text-sm text-muted">Failed to load messages</div>';
     }
+  },
+
+  _setSearchControlsEnabled(enabled) {
+    const search = document.getElementById('msg-search');
+    const sort = document.getElementById('msg-sort');
+    if (search) search.disabled = !enabled;
+    if (sort) sort.disabled = !enabled;
   },
 
   async loadMore() {
