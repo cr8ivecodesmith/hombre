@@ -791,6 +791,41 @@ tr.clickable:hover td { background: var(--accent-dim); }
 
 .search-bar .input { flex: 1; }
 
+/* ─── Session picker (searchable dropdown) ─── */
+.session-picker-list {
+  display: none;
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: 280px;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border-accent);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  z-index: 100;
+}
+
+.session-picker-item {
+  padding: 8px 12px;
+  font-size: 13px;
+  font-family: var(--font);
+  color: var(--text);
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.session-picker-item:last-child { border-bottom: none; }
+
+.session-picker-item:hover { background: var(--accent-dim); color: var(--accent); }
+
+.session-picker-item.empty { color: var(--text-muted); cursor: default; }
+.session-picker-item.empty:hover { background: none; }
+
 /* ─── Loading ─── */
 .spinner {
   width: 20px;

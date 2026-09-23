@@ -2452,7 +2452,12 @@ const MessagesTab = {
     allLoaded: false,
     currentSessionId: null,
     currentPeerFilter: null,
+    searchQuery: '',
+    searchMode: false,
+    sort: 'newest',
   },
+  _pickerDocHandler: null,
+  _searchTimer: null,
 
   resetState() {
     this.state.items = [];
@@ -2460,6 +2465,14 @@ const MessagesTab = {
     this.state.allLoaded = false;
     this.state.currentSessionId = null;
     this.state.currentPeerFilter = null;
+    this.state.searchQuery = '';
+    this.state.searchMode = false;
+    this.state.sort = 'newest';
+    if (this._searchTimer) { clearTimeout(this._searchTimer); this._searchTimer = null; }
+    if (this._pickerDocHandler) {
+      document.removeEventListener('mousedown', this._pickerDocHandler);
+      this._pickerDocHandler = null;
+    }
   },
 
   async render(el) {
@@ -2470,13 +2483,18 @@ const MessagesTab = {
         <p>Browse messages across sessions</p>
       </div>
       <div class="search-bar">
-        <select class="input" id="msg-session" style="max-width:300px" aria-label="Select session">
-          <option value="">All sessions</option>
-          ${App.state.sessions.map(s => `<option value="${App.escapeHtml(s.id)}">${App.escapeHtml(s.id)}</option>`).join('')}
-        </select>
+        <div class="session-picker" style="position:relative;width:300px">
+          <input type="text" class="input" id="msg-session-search" placeholder="Search sessions..." aria-label="Search sessions" autocomplete="off">
+          <div id="msg-session-list" class="session-picker-list"></div>
+        </div>
         <select class="input" id="msg-peer" style="max-width:200px" aria-label="Filter by peer">
           <option value="">All peers</option>
           ${App.state.peers.map(p => `<option value="${App.escapeHtml(p.id)}">${App.escapeHtml(p.id)}</option>`).join('')}
+        </select>
+        <input type="text" class="input" id="msg-search" placeholder="Search messages..." aria-label="Search messages" disabled style="max-width:220px">
+        <select class="input" id="msg-sort" style="max-width:180px" aria-label="Sort messages">
+          <option value="newest">Time: newest first</option>
+          <option value="oldest">Time: oldest first</option>
         </select>
         <button class="btn btn-primary" data-action="load-messages">Load</button>
       </div>
@@ -2488,14 +2506,109 @@ const MessagesTab = {
         </div>
       </div>
     `;
+
+    this._setupPicker();
+    this._setupSearch();
+    this._setupSort();
+  },
+
+  _setupPicker() {
+    const input = document.getElementById('msg-session-search');
+    const list = document.getElementById('msg-session-list');
+    if (!input || !list) return;
+
+    const renderList = () => {
+      const q = input.value.trim().toLowerCase();
+      const matches = App.state.sessions
+        .filter(s => !q || s.id.toLowerCase().includes(q))
+        .slice(0, 50);
+      list.innerHTML = matches.length === 0
+        ? '<div class="session-picker-item empty">No matching sessions</div>'
+        : matches.map(s => `<div class="session-picker-item" data-session="${App.escapeAttr(s.id)}">${App.escapeHtml(s.id)}</div>`).join('');
+      list.style.display = 'block';
+    };
+    const hide = () => { list.style.display = 'none'; };
+
+    input.addEventListener('focus', renderList);
+    input.addEventListener('input', renderList);
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const first = list.querySelector('.session-picker-item[data-session]');
+        if (first) this._selectSession(first.dataset.session, input);
+      }
+    });
+    list.addEventListener('mousedown', (e) => {
+      const item = e.target.closest('.session-picker-item[data-session]');
+      if (item) {
+        e.preventDefault();
+        this._selectSession(item.dataset.session, input);
+      }
+    });
+    this._pickerDocHandler = (e) => {
+      if (!e.target.closest('.session-picker')) hide();
+    };
+    document.addEventListener('mousedown', this._pickerDocHandler);
+  },
+
+  _selectSession(sessionId, input) {
+    input.value = sessionId;
+    const list = document.getElementById('msg-session-list');
+    if (list) list.style.display = 'none';
+    this.state.currentSessionId = sessionId;
+    const search = document.getElementById('msg-search');
+    if (search) search.disabled = false;
+    this.load();
+  },
+
+  _setupSearch() {
+    const search = document.getElementById('msg-search');
+    if (!search) return;
+    search.addEventListener('input', () => {
+      if (this._searchTimer) clearTimeout(this._searchTimer);
+      this._searchTimer = setTimeout(() => {
+        this.state.searchQuery = search.value.trim();
+        if (this.state.searchQuery) {
+          this.state.searchMode = true;
+          this.runSearch();
+        } else if (this.state.currentSessionId) {
+          this.state.searchMode = false;
+          this.load();
+        }
+      }, 300);
+    });
+  },
+
+  _setupSort() {
+    const sort = document.getElementById('msg-sort');
+    if (!sort) return;
+    sort.addEventListener('change', () => {
+      this.state.sort = sort.value;
+      this._rerender();
+    });
+  },
+
+  _rerender() {
+    const results = document.getElementById('msg-results');
+    if (results) this.renderMessages(results, this._sortedItems());
+  },
+
+  _sortedItems() {
+    const items = [...this.state.items];
+    items.sort((a, b) => {
+      const ta = new Date(a.created_at).getTime();
+      const tb = new Date(b.created_at).getTime();
+      return this.state.sort === 'oldest' ? ta - tb : tb - ta;
+    });
+    return items;
   },
 
   async load() {
-    const sessionId = document.getElementById('msg-session').value;
     const peerFilter = document.getElementById('msg-peer').value;
     const results = document.getElementById('msg-results');
+    if (!results) return;
 
-    if (!sessionId) {
+    if (!this.state.currentSessionId) {
       results.innerHTML = '<div class="text-sm text-muted">Please select a session</div>';
       return;
     }
@@ -2504,8 +2617,11 @@ const MessagesTab = {
     this.state.items = [];
     this.state.offset = 0;
     this.state.allLoaded = false;
-    this.state.currentSessionId = sessionId;
     this.state.currentPeerFilter = peerFilter;
+    this.state.searchMode = false;
+    this.state.searchQuery = '';
+    const search = document.getElementById('msg-search');
+    if (search) search.value = '';
 
     await this.fetchMessages();
   },
@@ -2532,7 +2648,7 @@ const MessagesTab = {
       const newMessages = data.items || [];
       this.state.items = offset === 0 ? newMessages : [...this.state.items, ...newMessages];
       this.state.allLoaded = newMessages.length < limit;
-      this.renderMessages(results, this.state.items);
+      this.renderMessages(results, this._sortedItems());
     } catch {
       results.innerHTML = '<div class="text-sm text-muted">Failed to load messages</div>';
     }
@@ -2543,20 +2659,58 @@ const MessagesTab = {
     await this.fetchMessages();
   },
 
+  async runSearch() {
+    const results = document.getElementById('msg-results');
+    if (!results || !this.state.currentSessionId) return;
+
+    const ws = App.state.workspace;
+    const peerFilter = document.getElementById('msg-peer').value;
+    this.state.currentPeerFilter = peerFilter;
+
+    results.innerHTML = '<div class="loading-overlay"><div class="spinner"></div> Searching...</div>';
+
+    try {
+      const filters = {};
+      if (peerFilter) filters.peer_id = peerFilter;
+
+      const data = await App.api(`workspaces/${ws.id}/sessions/${this.state.currentSessionId}/search`, {
+        body: { query: this.state.searchQuery, filters, limit: 100 },
+      });
+
+      this.state.items = this._normalizeSearch(data);
+      this.state.searchMode = true;
+      this.state.allLoaded = true;
+      this.renderMessages(results, this._sortedItems());
+    } catch {
+      results.innerHTML = '<div class="text-sm text-muted">Search failed</div>';
+    }
+  },
+
+  _normalizeSearch(data) {
+    if (Array.isArray(data)) return data;
+    return (data && (data.results || data.items || data.messages)) || [];
+  },
+
   renderMessages(container, messages) {
     if (messages.length === 0) {
-      container.innerHTML = '<div class="text-sm text-muted">No messages found</div>';
+      container.innerHTML = this.state.searchMode
+        ? '<div class="text-sm text-muted">No messages match your search</div>'
+        : '<div class="text-sm text-muted">No messages found</div>';
       return;
     }
 
-    const loadMoreHtml = this.state.allLoaded ? '' : `
+    const countLabel = this.state.searchMode
+      ? `Showing ${messages.length} of up to 100 &middot; search: &ldquo;${App.escapeHtml(this.state.searchQuery)}&rdquo;`
+      : `${messages.length} message${messages.length !== 1 ? 's' : ''}`;
+
+    const loadMoreHtml = (!this.state.searchMode && !this.state.allLoaded) ? `
       <div class="load-more-wrap">
         <button class="btn-load-more" data-action="load-more-messages">Load More</button>
       </div>
-    `;
+    ` : '';
 
     container.innerHTML = `
-      <div class="text-sm text-muted mb-3">${messages.length} message${messages.length !== 1 ? 's' : ''}</div>
+      <div class="text-sm text-muted mb-3">${countLabel}</div>
       <div class="table-wrap" style="max-height:calc(100vh - 280px);overflow-y:auto">
         <table>
           <thead><tr><th>Peer</th><th>Content</th><th>Tokens</th><th>Time</th><th></th></tr></thead>
