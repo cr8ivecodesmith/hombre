@@ -132,6 +132,10 @@ Sessions have two states:
 - **Active** — Currently accepting new messages
 - **Inactive** — No longer accepting messages
 
+### Searching and Sorting Sessions
+
+Use the search box to filter sessions by ID (case-insensitive substring match) and the sort control to order by creation date (newest or oldest first). The match count updates as you type, and pagination follows the filtered set.
+
 ### Viewing Session Messages
 
 Click **Messages** on any session row to expand and view the conversation history.

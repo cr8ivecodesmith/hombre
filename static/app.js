@@ -7,6 +7,8 @@ const App = {
     sessions: [],
     sessionPage: 1,
     sessionPageSize: 50,
+    sessionSearch: '',
+    sessionSort: 'newest',
     conclusionPage: 1,
     conclusionPageSize: 25,
     user: null,
@@ -97,6 +99,7 @@ const App = {
       if (this.state.workspace) {
         localStorage.setItem('hombre_workspace', wsId);
         this.state.sessionPage = 1;
+        this.state.sessionSearch = '';
         this.state.conclusionPage = 1;
         await this.loadPeersAndSessions();
         this.renderTab(this.state.activeTab);
@@ -1555,22 +1558,87 @@ const SessionsTab = {
       return;
     }
 
-    const total = App.state.sessions.length;
-    const totalPages = Math.max(1, Math.ceil(total / App.state.sessionPageSize));
-    if (App.state.sessionPage > totalPages) App.state.sessionPage = totalPages;
-    const pageStart = (App.state.sessionPage - 1) * App.state.sessionPageSize;
-    const pageSessions = App.state.sessions.slice(pageStart, pageStart + App.state.sessionPageSize);
-
     el.innerHTML = `
       <div class="tab-header">
         <div class="flex items-center justify-between">
           <div>
             <h2>Sessions</h2>
-            <p>${total} session${total !== 1 ? 's' : ''}</p>
+            <p id="session-count"></p>
           </div>
           <button class="btn btn-primary" id="create-session-btn">+ New Session</button>
         </div>
       </div>
+      <div class="search-bar">
+        <input type="text" class="input" id="session-search" placeholder="Search sessions by ID..." aria-label="Search sessions">
+        <select class="input" id="session-sort" style="max-width:200px" aria-label="Sort sessions">
+          <option value="newest">Created: newest first</option>
+          <option value="oldest">Created: oldest first</option>
+        </select>
+      </div>
+      <div id="session-results"></div>
+    `;
+
+    const searchInput = document.getElementById('session-search');
+    const sortSelect = document.getElementById('session-sort');
+    searchInput.value = App.state.sessionSearch;
+    sortSelect.value = App.state.sessionSort;
+
+    searchInput.addEventListener('input', () => {
+      App.state.sessionSearch = searchInput.value.trim();
+      App.state.sessionPage = 1;
+      this.renderTable();
+    });
+    sortSelect.addEventListener('change', () => {
+      App.state.sessionSort = sortSelect.value;
+      App.state.sessionPage = 1;
+      this.renderTable();
+    });
+
+    document.getElementById('create-session-btn').addEventListener('click', () => this.createSession());
+
+    this.renderTable();
+  },
+
+  getFilteredSorted() {
+    let list = App.state.sessions;
+    const q = (App.state.sessionSearch || '').toLowerCase();
+    if (q) list = list.filter(s => s.id.toLowerCase().includes(q));
+    const sorted = [...list];
+    sorted.sort((a, b) => {
+      const ta = new Date(a.created_at).getTime();
+      const tb = new Date(b.created_at).getTime();
+      return App.state.sessionSort === 'oldest' ? ta - tb : tb - ta;
+    });
+    return sorted;
+  },
+
+  renderTable() {
+    const container = document.getElementById('session-results');
+    const countEl = document.getElementById('session-count');
+    if (!container) return;
+    const ws = App.state.workspace;
+
+    const all = App.state.sessions.length;
+    const filtered = this.getFilteredSorted();
+    const total = filtered.length;
+
+    if (countEl) {
+      countEl.textContent = (App.state.sessionSearch && total !== all)
+        ? `${total} of ${all} sessions match`
+        : `${all} session${all !== 1 ? 's' : ''}`;
+    }
+
+    if (total === 0) {
+      container.innerHTML = `<div class="empty-state"><h3>No sessions match</h3><p>Try a different search term</p></div>`;
+      return;
+    }
+
+    const totalPages = Math.max(1, Math.ceil(total / App.state.sessionPageSize));
+    if (App.state.sessionPage > totalPages) App.state.sessionPage = totalPages;
+    const pageStart = (App.state.sessionPage - 1) * App.state.sessionPageSize;
+    const pageSessions = filtered.slice(pageStart, pageStart + App.state.sessionPageSize);
+
+    container.innerHTML = `
       <div class="table-wrap">
         <table>
           <thead><tr><th>Session ID</th><th>Status</th><th>Created</th><th></th></tr></thead>
@@ -1608,9 +1676,7 @@ const SessionsTab = {
       ${total > App.state.sessionPageSize ? App.renderPaginationControls(App.state.sessionPage, totalPages, total, 'sessions') : ''}
     `;
 
-    document.getElementById('create-session-btn').addEventListener('click', () => this.createSession());
-
-    el.querySelectorAll('[data-action="delete-session"]').forEach(btn => {
+    container.querySelectorAll('[data-action="delete-session"]').forEach(btn => {
       btn.addEventListener('click', async (e) => {
         e.stopPropagation();
         const sessionId = btn.dataset.id;
@@ -1630,9 +1696,9 @@ const SessionsTab = {
   },
 
   goToPage(page) {
-    const totalPages = Math.max(1, Math.ceil(App.state.sessions.length / App.state.sessionPageSize));
+    const totalPages = Math.max(1, Math.ceil(this.getFilteredSorted().length / App.state.sessionPageSize));
     App.state.sessionPage = Math.max(1, Math.min(page, totalPages));
-    App.renderTab(App.state.activeTab);
+    this.renderTable();
   },
 
   createSession() {
