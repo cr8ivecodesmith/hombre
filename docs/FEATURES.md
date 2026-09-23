@@ -226,7 +226,9 @@ The Messages tab provides a cross-session view of all messages.
 
 ### Searching Messages
 
-With a session selected, type in the **Search messages** box to run a full-text search over that session's messages (Honcho `/search`, up to 100 results). The search ANDs with the peer filter, and the result count shows "Showing N of up to 100". Clearing the search returns to the normal listing.
+With a session selected, type in the **Search messages** box to search that session's messages (Honcho `/search`, up to 100 results). The backend search is a hybrid (semantic + full-text) that returns the top-N by relevance; the UI then filters client-side so only messages whose content actually contains the query are shown. The search ANDs with the peer filter, and the result count shows "Showing N of up to 100". Clearing the search returns to the normal listing.
+
+Selecting a session, changing the peer filter, or typing in the search box all automatically reload — no separate Load button is needed.
 
 ### Sorting
 
